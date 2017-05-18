@@ -87,4 +87,4 @@ for (x in c('1', letters)){#for each dictionary entry
 ###################################################################################################
 # save data
 
-save(RB_dat, file=sprintf("BA_dat_%s.RData", Sys.Date()))
+save(RB_dat, file=sprintf("RB_dat_%s.RData", Sys.Date()))
