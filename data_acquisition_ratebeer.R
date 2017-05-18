@@ -56,7 +56,7 @@ for (x in c('1', letters)){#for each dictionary entry
     link_nodes = getNodeSet(RB_web, '//a')
     
     for (y in seq(1, length(link_nodes))){#for each link
-      if (!is.na(pmatch('/brewers', as.character(xmlAttrs(link_nodes[[y]]))))){#if link points to this stubstring indicating a brewery
+      if (!is.na(pmatch('/brewers', as.character(xmlAttrs(link_nodes[[y]]))))){#if link points to this substring indicating a brewery
         
         print(paste(RB_add, as.character(xmlAttrs(link_nodes[[y]])), sep = ""))
         
@@ -71,7 +71,7 @@ for (x in c('1', letters)){#for each dictionary entry
           RB_table_cut = RB_table$`brewer-beer-table`[as.numeric(RB_table$`brewer-beer-table`[,'#']) >= minimal_raters,]
           
           RB_dat <- rbind(RB_dat, data.frame(
-            super_style = rep(NA, nrow(RB_table_cut)),
+            super_style = rep(NA, nrow(RB_table_cut)),#gets added later
             sub_style = unlist(lapply(RB_table_cut$Name, function(x) strsplit(x, '% ')[[1]][2])),#
             beer_name = unlist(lapply(RB_table_cut$Name, function(x) strsplit(x, '  ')[[1]][1])),
             brewery = rep(brewery_name, nrow(RB_table_cut)),
@@ -84,7 +84,13 @@ for (x in c('1', letters)){#for each dictionary entry
     }
 }
 
+#add super style
+RB_web = web_pre(paste(RB_add, '/beerstyles/', sep = ""), ssl_verification = F)#load beer styles page
+for (super_style in c(16, 17, 18, 19, 21, 22, 23, 24)){
+  x = unlist(xmlToList(getNodeSet(RB_web, '//div')[[super_style]]))#list of links and names of sub-styles of this super-style
+  RB_dat[RB_dat[,'sub_style'] %in% x, 'super_style'] = as.character(x['h3'])
+}
+
 ###################################################################################################
 # save data
-
 save(RB_dat, file=sprintf("RB_dat_%s.RData", Sys.Date()))
