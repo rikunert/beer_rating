@@ -9,6 +9,11 @@
 if(!require(ggplot2)){install.packages('ggplot2')} #main plotting library
 library(ggplot2)
 
+if(!require(jpeg)){install.packages('jpeg')} #adding image to plot
+library(jpeg)
+
+if(!require(grImport)){install.packages('grImport')} #adding image to plot
+library(grImport)
 
 ###################################################################################################
 # load data
@@ -16,71 +21,80 @@ library(ggplot2)
 load(url("https://github.com/rikunert/beer_rating/raw/master/BA_dat_2017-05-16.RData"))#beer advocate
 BA_dat = BA_dat[BA_dat[,'raters'] > 100,]#remove beers with few raters
 
-load(url("https://github.com/rikunert/beer_rating/raw/master/RB_dat_2017-05-17.RData"))#rate beer
+load(url("https://github.com/rikunert/beer_rating/raw/master/RB_dat_2017-05-18.RData"))#rate beer
+
+# Beer advocate is the far better data base including more beers rated by more people, resulting in more diverse mean ratings
+
+#download and load image of a star
+z <- tempfile()
+download.file('https://github.com/rikunert/Star_Trek_ratings/raw/master/gold_star.jpg',
+              z, mode="wb")
+pic <- readJPEG(z)
+pic = rasterGrob(pic, interpolate=TRUE)
+file.remove(z) # cleanup
 
 ###################################################################################################
 #prepare general look of plots (very clean)
 
-theme_set(theme_bw(18)+#remove gray background, set font-size
+theme_set(theme_bw(14)+#remove gray background, set font-size
             theme(axis.line = element_line(colour = "black"),
                   panel.grid.major = element_blank(),
                   panel.grid.minor = element_blank(),
-                  panel.background = element_blank(),
+                  #panel.background = element_blank(),
                   panel.border = element_blank(),
                   plot.title = element_text(hjust = 0.5, face="bold"),
-                  legend.key = element_blank(),
-                  legend.title = element_blank(),#remove all sorts of lines for a cleaner look
-                  legend.position = 'top',#specify the legend to be on top
-                  legend.direction = 'vertical'))#specify the legend to be arranged vertically
+                  #legend.key = element_blank(),
+                  #legend.title = element_blank(),#remove all sorts of lines for a cleaner look
+                  #legend.position = 'top',#specify the legend to be on top
+                  legend.direction = 'vertical',#specify the legend to be arranged vertically
+                  panel.background = element_rect(fill = "orange",
+                                                  colour = NA)))
 
 ###################################################################################################
-# raw distribution
-BA_dat$ABV
+#custom functions
 
-## Beer advocate the far better data base
+add_stars = function(p, star_pic, star_xpos, star_size, star_distance){#input: a plot
+    
+    p = beer_pref
+    p = p + theme(plot.margin = unit(c(1,1,1,4), "lines"))#increase left margin
+    
+    for (i in seq(1,5)){#for each star level
+      for (j in seq(1, i)){#for each individual star
+        p = p + annotation_custom(grob = star_pic, xmin=-(star_size - star_xpos)-j*star_distance, xmax=star_xpos - j*star_distance, ymin=i - 0.3, ymax=i + 0.3)  #add 1 star at coordinates
+      }}      
+    
+    # Code to override clipping of images to within drawing area
+    gt <- ggplot_gtable(ggplot_build(p))
+    gt$layout$clip[gt$layout$name == "panel"] <- "off"
+    return(gt)
+    
+}
 
-#beer advocate has far more beers in the data base
-dim(BA_dat)#far bigger data base
-dim(RB_dat)#far smaller data base
+###################################################################################################
+#Which types of beers do people like to drink?
 
-#beers are typically rated by more people on beer advocate
-median(BA_dat[,'raters'])#
-median(RB_dat[,'raters'])#
+#order according to best beer
+x = tapply(BA_dat$rating[!is.na(BA_dat$rating)], BA_dat$sub_style[!is.na(BA_dat$rating)], median)#get median for each substyle
+BA_dat$sub_style = factor(BA_dat$sub_style, levels = names(x)[order(x)])
 
-#mean ratings are more diverse for beer advocate
-sd(BA_dat[,'raters'])#
-sd(RB_dat[,'raters'])#
+beer_pref = ggplot(data = BA_dat, aes(x = sub_style, y = rating)) +
+  geom_point(aes(size = raters), alpha = 0.2, color = 'white', position=position_jitter(w=0.2, h=0)) +
+  stat_summary(fun.y=median, geom="point", aes(shape = super_style), color="white", fill = 'white', size=4) +
+  ylim(1, 5) +
+  ggtitle("What kind of beer is the best?") +
+  labs(size="# Ratings", shape="Type") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 8)) +#x-axis labels at an angle
+  theme(legend.position = c(0.88, 0.23), axis.title.x = element_blank()) +#legend position in bottom right
+  theme(legend.key = element_rect(color = 'transparent', fill = 'transparent'),
+        legend.background = element_rect(fill = 'transparent', color = 'white'),
+        legend.box = "horizontal",
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank()) +
+  annotate("text", x=0.8, y=-Inf,vjust = -0.5, hjust=0,label="@rikunert  Data from Beer Advocate") +
+  annotate("text", x = 1, y = min(x[!is.na(x)]), 
+           vjust = 0, hjust=0, label="The worst: Light Lager", fontface = 2) +
+  annotate("text", x = 100, y = max(x[!is.na(x)]), 
+           vjust = 0.5, hjust=1, label="The best: Gueuze", fontface = 2)
 
-
-unique(BA_dat[,'super_style'])#includes super styles
-unique(RB_dat[,'sub_style'])
-
-dens_plot = ggplot(data = RB_dat, aes(x = raters)) +
-  geom_density() +
-  labs(x = 'Raters', y = 'Density', title = 'beer advocate')
-  #geom_density(aes(group=sub_style, colour=super_style))
-dens_plot
-
-dens_plot = ggplot(data = RB_dat, aes(x = rating)) +
-  geom_density(aes(group=sub_style))+
-  labs(x = 'Star rating', y = 'Density', title = 'rate beer') + xlim(c(1, 5))
-
-dens_plot
-
-scat_plot = ggplot(data = BA_dat, aes(x = ABV, y = rating, group = sub_style)) +
-  geom_point(alpha = 0.2) +
-  geom_smooth(se = F) +
-  labs(x = 'ABV', y = 'rating', title = 'beer advocate')
-#geom_density(aes(group=sub_style, colour=super_style))
-scat_plot
-
-  geom_bar(stat = 'identity', fill = '#000080') +
-  labs(x = 'Year', y = 'Published articles', title = 'PLoS ONE has passed its publication peak') +#add labels and title
-  theme(axis.text = element_text(size = 20)) + #axis label size
-  theme(axis.title = element_text(size = 22)) +#axis title size
-  theme(plot.title = element_text(size = 24)) +
-  scale_x_discrete(breaks = levels(articles$year)[c(T, rep(F, 1))])#leave one year blank on x-axis after every year labeled
-
-bar_plot#print actual plot
-
-
+beer_pref = add_stars(beer_pref, star_pic = pic, star_xpos = 0.5, star_size = 1.5, star_distance = 1.5)#add stars and turn into gtable
+grid.draw(beer_pref)
