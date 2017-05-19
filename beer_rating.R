@@ -15,6 +15,12 @@ library(jpeg)
 if(!require(grImport)){install.packages('grImport')} #adding image to plot
 library(grImport)
 
+if(!require(gtable)){install.packages('gtable')} #adding footer to plot
+library(gtable)
+
+if(!require(gridExtra)){install.packages('gridExtra')} #adding footer to plot
+library(gridExtra)
+
 ###################################################################################################
 # load data
 
@@ -55,7 +61,6 @@ theme_set(theme_bw(14)+#remove gray background, set font-size
 
 add_stars = function(p, star_pic, star_xpos, star_size, star_distance){#input: a plot
     
-    p = beer_pref
     p = p + theme(plot.margin = unit(c(1,1,1,4), "lines"))#increase left margin
     
     for (i in seq(1,5)){#for each star level
@@ -64,10 +69,10 @@ add_stars = function(p, star_pic, star_xpos, star_size, star_distance){#input: a
       }}      
     
     # Code to override clipping of images to within drawing area
-    gt <- ggplot_gtable(ggplot_build(p))
-    gt$layout$clip[gt$layout$name == "panel"] <- "off"
-    return(gt)
-    
+    gp <- ggplot_gtable(ggplot_build(p))
+    gp$layout$clip[gp$layout$name == "panel"] <- "off"
+    grid.draw(gp)
+
 }
 
 ###################################################################################################
@@ -90,11 +95,14 @@ beer_pref = ggplot(data = BA_dat, aes(x = sub_style, y = rating)) +
         legend.box = "horizontal",
         axis.title.y=element_blank(),
         axis.text.y=element_blank()) +
-  annotate("text", x=0.8, y=-Inf,vjust = -0.5, hjust=0,label="@rikunert  Data from Beer Advocate") +
+  #annotate("text", x=0.8, y=-Inf,vjust = -0.5, hjust=0,label="@rikunert  Data from Beer Advocate") +
   annotate("text", x = 1, y = min(x[!is.na(x)]), 
            vjust = 0, hjust=0, label="The worst: Light Lager", fontface = 2) +
   annotate("text", x = 100, y = max(x[!is.na(x)]), 
            vjust = 0.5, hjust=1, label="The best: Gueuze", fontface = 2)
 
-beer_pref = add_stars(beer_pref, star_pic = pic, star_xpos = 0.5, star_size = 1.5, star_distance = 1.5)#add stars and turn into gtable
-grid.draw(beer_pref)
+beer_pref = beer_pref + labs(caption = c('@rikunert                                                                                                                                                                                        Source: beeradvocate.com')) + 
+  theme(plot.caption = element_text(size = 12, color = 'grey', face= 'italic'))
+
+add_stars(beer_pref, star_pic = pic, star_xpos = 0.5, star_size = 1.5, star_distance = 1.5)#add stars and turn into gtable
+
