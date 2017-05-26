@@ -84,7 +84,7 @@ BA_dat$sub_style = factor(BA_dat$sub_style, levels = names(x)[order(x)])
 
 beer_pref = ggplot(data = BA_dat, aes(x = sub_style, y = rating)) +
   geom_point(aes(size = raters), alpha = 0.2, color = 'white', position=position_jitter(w=0.2, h=0)) +
-  stat_summary(fun.y=median, geom="point", aes(shape = super_style, colour= super_style), size=4) +
+  stat_summary(fun.y=median, geom="point", aes(colour= super_style), size=4) +
   ylim(1, 5) +
   ggtitle("What kind of beer is the best?") +
   labs(size="# Ratings", shape="Type") +
