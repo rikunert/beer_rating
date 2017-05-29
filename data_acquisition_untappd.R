@@ -72,7 +72,8 @@ UT_dat = data.frame(BA_super_style = character(),
                     UT_rating = double(),
                     UT_raters = integer(),
                     BA_rating = double(),
-                    BA_raters = integer())
+                    BA_raters = integer(),
+                    UT_loc = character())
 
 #get all beers by searching through already known beer names
 
@@ -94,7 +95,7 @@ for(i in seq(1, nrow(BA_dat))){
         
         UT_web = web_pre(paste('https://untappd.com', as.character(xmlAttrs(link_nodes[[18]])), sep = ''), ssl_verification = F)#
         
-        #distance (percentage of max)
+        #distance between beeradvocate and untappd entries (percentage of max)
         tryCatch({
           
           beer_name_dist = stringdist(as.character(gsub('[[:punct:]]',' ', enc2native(as.character(BA_dat[i,'beer_name'])))),
@@ -111,7 +112,7 @@ for(i in seq(1, nrow(BA_dat))){
         
         tryCatch({
           brewery_name_dist = stringdist(as.character(gsub('[[:punct:]]',' ', enc2native(as.character(BA_dat[i,'brewery'])))),
-                                         as(xmlChildren(link_nodes[[19]])$text, "character"), # name of the beer on untappd
+                                         as(xmlChildren(link_nodes[[19]])$text, "character"), # name of the berewery on untappd
                                          method = 'osa') / max(nchar(as.character(gsub('[[:punct:]]',' ', enc2native(as.character(BA_dat[i,'brewery']))))),
                                                                nchar(as(xmlChildren(link_nodes[[19]])$text, "character")))
           
@@ -145,9 +146,16 @@ for(i in seq(1, nrow(BA_dat))){
                       as(xmlChildren(link_nodes[[18]])$text, "character"),
                       paste('https://untappd.com', as.character(xmlAttrs(link_nodes[[18]])), sep = '')))
           
+          
+          #prepare beer name
           beer_name = as.character(xmlToDataFrame(getNodeSet(UT_web, '//h1'))$text)
           if(identical(beer_name, character(0))) beer_name = gsub(' ', '', as.character(xmlToDataFrame(getNodeSet(UT_web, '//h1'))$u))#the Baltika case
           
+          #prepare location of brewery by accessing brewery page
+          #print(paste('https://untappd.com', as.character(xmlAttrs(link_nodes[[19]])), sep = ''))
+          brewery_web = web_pre(paste('https://untappd.com', as.character(xmlAttrs(link_nodes[[19]])), sep = ''), ssl_verification = F)
+          
+          #put all data for this beer together
           UT_dat <- rbind(UT_dat, data.frame(
             BA_super_style = BA_dat[i,'super_style'],#not included by untappd
             UT_sub_style = as.character(xmlToDataFrame(getNodeSet(UT_web, "//p[@class ='style']"))[[1]]),
@@ -162,7 +170,8 @@ for(i in seq(1, nrow(BA_dat))){
             UT_rating = as.numeric(gsub("\\(|\\)", "", as.character(xmlToDataFrame(getNodeSet(UT_web, "//span[@class ='num']"))[[1]]))),#only supplied if enough raters
             UT_raters = as.numeric(gsub("([0-9]+).*$", "\\1", gsub(",","", as.character(xmlToDataFrame(getNodeSet(UT_web, "//p[@class ='raters']"))[[1]])))),
             BA_rating = BA_dat[i,'rating'],
-            BA_raters = BA_dat[i,'raters']
+            BA_raters = BA_dat[i,'raters'],
+            UT_loc = gsub('\\n|\\t', '', as.character(xmlToDataFrame(getNodeSet(brewery_web, "//p[@class ='brewery']"))[[1]]))
           ))
         }}}}
 }
