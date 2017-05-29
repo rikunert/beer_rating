@@ -24,6 +24,12 @@ library(gridExtra)
 if(!require(scales)){install.packages('scales')} #comma notation in plot
 library(scales)
 
+if(!require(devtools)){install.packages('devtools')} #developer version download
+library(devtools)
+devtools::install_version("plotly", version = "4.5.6", 
+                          repos = "http://cran.us.r-project.org")
+library(plotly)
+
 ###################################################################################################
 # load data
 
@@ -159,7 +165,7 @@ hist_dat = data.frame(raters = c(UT_dat[,'UT_raters'], BA_dat[,'raters'], RB_dat
                                   rep('Rate beer', nrow(RB_dat)))
                       )
 hist_dat$website = ordered(hist_dat$website, c('Untappd', 'Beer advocate', 'Rate beer'))
-ggplot(data = hist_dat, aes(x = raters, colour = website)) +
+p = ggplot(data = hist_dat, aes(x = raters, colour = website)) +
   geom_freqpoly(size = 1.5) +
   scale_colour_grey(start = 0.7, end = 1) +
   xlim(-100,20000) + ggtitle("Which beer rating website is the biggest?") + xlab('# Raters per beer') + ylab('Count of beers') +
@@ -169,6 +175,8 @@ ggplot(data = hist_dat, aes(x = raters, colour = website)) +
         legend.box = "horizontal") + 
   labs(caption = c('@rikunert                                                                                                                                Source: ratebeer.com, beeradvocate.com, & untappd.com')) + 
   theme(plot.caption = element_text(size = 12, color = 'grey', face= 'italic', margin = margin(t = 10,10,15,10)))
+
+p
 
 ###################################################################################################
 #How much alcohol should a beer have
@@ -209,7 +217,7 @@ add_stars(alc_plot, star_pic = pic, star_xpos = -1, star_size = 0.3, star_distan
 
 IBU_plot = ggplot(data = UT_dat, aes(x = UT_IBU, y = UT_rating)) +
   geom_point(aes(size = UT_raters), alpha = 0.2, color = 'white') +
-  ylim(1, 5) + xlim(0,20) + scale_size_continuous(labels=comma) +
+  ylim(1, 5) + xlim(0,150) + scale_size_continuous(labels=comma) +
   geom_smooth(se = F, colour = 'grey95', linetype = 5, size = 1) +
   theme(legend.key = element_rect(color = 'transparent', fill = 'transparent'),
         legend.background = element_rect(fill = 'transparent', color = 'white'),
@@ -217,11 +225,62 @@ IBU_plot = ggplot(data = UT_dat, aes(x = UT_IBU, y = UT_rating)) +
         axis.title.y=element_blank(),
         axis.text.y=element_blank()) +
   labs(size="# Ratings") +#legend title
-  ggtitle("Beer: bitterness does not matter") +
+  ggtitle("Beer: bitterness does not matter much") +
   xlab('Bitterness (IBU value)') +
-  theme(legend.position = c(0.1, 0.23)) #+#legend position in bottom right
+  theme(legend.position = c(0.88, 0.23)) #+#legend position in bottom right
   
 IBU_plot = IBU_plot + labs(caption = c('@rikunert                                                                                                                                                                                                Source: untappd.com')) + 
   theme(plot.caption = element_text(size = 12, color = 'grey', face= 'italic', margin = margin(t = 10,10,15,10)))
 
-add_stars(IBU_plot, star_pic = pic, star_xpos = -1, star_size = 0.3, star_distance = 0.3)#add vertical stars
+add_stars(IBU_plot, star_pic = pic, star_xpos = -6.5, star_size = 2, star_distance = 2)#add vertical stars
+
+###################################################################################################
+#Are bitter beers more alcoholic?
+
+ABV_IBU_plot = ggplot(data = UT_dat, aes(x = UT_ABV, y = UT_IBU)) +
+  geom_point(alpha = 0.2, color = 'white') +
+  xlim(0, 20) + ylim(0, 310)  +
+  geom_smooth(se = F, colour = 'grey95', linetype = 5, size = 1) +
+  theme(legend.key = element_rect(color = 'transparent', fill = 'transparent'),
+        legend.background = element_rect(fill = 'transparent', color = 'white'),
+        legend.box = "horizontal") +
+  labs(size="# Ratings") +#legend title
+  ggtitle("Are bitter beers stronger beers?") +
+  ylab('Bitterness (IBU value)') +
+  xlab('% Alcohol') +
+  theme(legend.position = c(0.88, 0.7)) #+#legend position in bottom right
+
+ABV_IBU_plot = ABV_IBU_plot + labs(caption = c('@rikunert                                                                                                                                                                                                Source: untappd.com')) + 
+  theme(plot.caption = element_text(size = 12, color = 'grey', face= 'italic', margin = margin(t = 10,10,15,10)))
+ABV_IBU_plot
+###################################################################################################
+#The interaction of bitterness and alcohol content for beer ratings
+int_dat = UT_dat[complete.cases(UT_dat[,c(4, 5, 8, 10, 11, 12)]),]
+
+p <- plot_ly(int_dat, x = ~UT_ABV, y = ~UT_IBU, z = ~UT_rating, size = ~UT_raters,
+             marker = list(symbol = 'circle', sizemode = 'area', color = ~UT_rating, colorscale = c('#708090', '#683531'), showscale = F),
+             sizes = c(50, 1000), opacity = 0.4, 
+             text = ~paste('Type: ', UT_sub_style, '<br>Beer: ', UT_beer_name, '<br>Brewery: ', UT_brewery,
+                           '<br>Untappd user rating: ', UT_rating,
+                           '<br>Untappd raters: ', UT_raters,
+                           '<br>Alcohol content: ', UT_ABV, '%',
+                           '<br>Bitterness: ', UT_IBU, 'IBU')) %>%
+  layout(title = 'How bittnerness and alcohol make beer good',
+         scene = list(xaxis = list(title = '% Alcohol (ABV)',
+                                   gridcolor = 'rgb(255, 255, 255)',
+                                   range = c(0, 20),
+                                   zerolinewidth = 1,
+                                   ticklen = 5,
+                                   gridwidth = 2),
+                      yaxis = list(title = 'Bitterness (IBU)',
+                                   gridcolor = 'rgb(255, 255, 255)',
+                                   range = c(0, 310),
+                                   zerolinewidth = 1,
+                                   ticklen = 5,
+                                   gridwith = 2),
+                      zaxis = list(title = 'Untappd rating',
+                                   gridcolor = 'rgb(255, 255, 255)',
+                                   zerolinewidth = 1,
+                                   ticklen = 5,
+                                   gridwith = 2)))
+p
