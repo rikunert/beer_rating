@@ -24,12 +24,6 @@ library(gridExtra)
 if(!require(scales)){install.packages('scales')} #comma notation in plot
 library(scales)
 
-if(!require(devtools)){install.packages('devtools')} #developer version download
-library(devtools)
-devtools::install_version("plotly", version = "4.5.6", 
-                          repos = "http://cran.us.r-project.org")
-library(plotly)
-
 ###################################################################################################
 # load data
 
@@ -38,7 +32,7 @@ BA_dat = BA_dat[BA_dat[,'raters'] > 100,]#remove beers with few raters
 
 load(url("https://github.com/rikunert/beer_rating/raw/master/RB_dat_2017-05-18.RData"))#rate beer
 
-load(url("https://github.com/rikunert/beer_rating/raw/master/UT_dat_2017-05-26.RData"))#beer advocate and untappd
+load(url("https://github.com/rikunert/beer_rating/raw/master/UT_dat_2017-05-29.RData"))#beer advocate and untappd
 
 # Beer advocate is the far better data base including more beers rated by more people, resulting in more diverse mean ratings
 
@@ -179,7 +173,7 @@ p = ggplot(data = hist_dat, aes(x = raters, colour = website)) +
 p
 
 ###################################################################################################
-#How much alcohol should a beer have
+#How much alcohol should a beer have?
 
 alc_plot = ggplot(data = UT_dat, aes(x = UT_ABV, y = UT_rating)) +
   geom_point(aes(size = UT_raters), alpha = 0.2, color = 'white') +
@@ -253,34 +247,3 @@ ABV_IBU_plot = ggplot(data = UT_dat, aes(x = UT_ABV, y = UT_IBU)) +
 ABV_IBU_plot = ABV_IBU_plot + labs(caption = c('@rikunert                                                                                                                                                                                                Source: untappd.com')) + 
   theme(plot.caption = element_text(size = 12, color = 'grey', face= 'italic', margin = margin(t = 10,10,15,10)))
 ABV_IBU_plot
-###################################################################################################
-#The interaction of bitterness and alcohol content for beer ratings
-int_dat = UT_dat[complete.cases(UT_dat[,c(4, 5, 8, 10, 11, 12)]),]
-
-p <- plot_ly(int_dat, x = ~UT_ABV, y = ~UT_IBU, z = ~UT_rating, size = ~UT_raters,
-             marker = list(symbol = 'circle', sizemode = 'area', color = ~UT_rating, colorscale = c('#708090', '#683531'), showscale = F),
-             sizes = c(50, 1000), opacity = 0.4, 
-             text = ~paste('Type: ', UT_sub_style, '<br>Beer: ', UT_beer_name, '<br>Brewery: ', UT_brewery,
-                           '<br>Untappd user rating: ', UT_rating,
-                           '<br>Untappd raters: ', UT_raters,
-                           '<br>Alcohol content: ', UT_ABV, '%',
-                           '<br>Bitterness: ', UT_IBU, 'IBU')) %>%
-  layout(title = 'How bittnerness and alcohol make beer good',
-         scene = list(xaxis = list(title = '% Alcohol (ABV)',
-                                   gridcolor = 'rgb(255, 255, 255)',
-                                   range = c(0, 20),
-                                   zerolinewidth = 1,
-                                   ticklen = 5,
-                                   gridwidth = 2),
-                      yaxis = list(title = 'Bitterness (IBU)',
-                                   gridcolor = 'rgb(255, 255, 255)',
-                                   range = c(0, 310),
-                                   zerolinewidth = 1,
-                                   ticklen = 5,
-                                   gridwith = 2),
-                      zaxis = list(title = 'Untappd rating',
-                                   gridcolor = 'rgb(255, 255, 255)',
-                                   zerolinewidth = 1,
-                                   ticklen = 5,
-                                   gridwith = 2)))
-p
