@@ -24,6 +24,8 @@ library(plotly)
 ###################################################################################################
 # load data
 load(url("https://github.com/rikunert/beer_rating/raw/master/UT_dat_2017-05-29.RData"))#beer advocate and untappd
+UT_dat$ALL_rating = with(UT_dat, (UT_rating*UT_raters + BA_rating*BA_raters)/(UT_raters + BA_raters))#overall rating
+UT_dat$ALL_raters = with(UT_dat, UT_raters + BA_raters)#total number of raters
 
 ###################################################################################################
 #The interaction of bitterness and alcohol content for beer ratings
@@ -32,14 +34,14 @@ xmax = 20#ABV
 ymax = 310#IBU
 interp_dens = 100#interpolation density for modeling
 
-int_dat = UT_dat[complete.cases(UT_dat[c('UT_beer_name', 'UT_brewery', 'UT_ABV', 'UT_IBU', 'UT_rating', 'UT_raters')]),]
+int_dat = UT_dat[complete.cases(UT_dat[c('UT_beer_name', 'UT_brewery', 'UT_ABV', 'UT_IBU', 'ALL_rating', 'ALL_raters')]),]
 
 #Which individual beer is best?
 #head(int_dat[order(-int_dat[,'UT_rating']),], 10)#order to see who is best in text
 #quantile(int_dat$UT_IBU, seq(0, 1, 0.01))#put values in perspective
 
 #generate LOESS model of beer ratings and predict interpolated ratings
-m = loess(UT_rating ~ UT_ABV * UT_IBU, data = int_dat, weights = UT_raters)
+m = loess(ALL_rating ~ UT_ABV * UT_IBU, data = int_dat, weights = ALL_raters)
 x_marginal = seq(min(int_dat$UT_ABV), xmax, length = interp_dens)
 y_marginal = seq(min(int_dat$UT_IBU), ymax, length = interp_dens)
 data.fit <-  expand.grid(list(UT_ABV = x_marginal, UT_IBU = y_marginal))
@@ -56,9 +58,9 @@ hover <- with(data.frame(x = rep(x_marginal, interp_dens),
 hover_m = matrix(hover, nrow = interp_dens, ncol = interp_dens, byrow = T)
 
 p <- plot_ly() %>%
-  add_markers(data = int_dat, x = ~UT_ABV, y = ~UT_IBU, z = ~UT_rating, size = ~UT_raters,
+  add_markers(data = int_dat, x = ~UT_ABV, y = ~UT_IBU, z = ~ALL_rating, size = ~ALL_raters,
              marker = list(symbol = 'circle', sizemode = 'area',
-                           color = ~UT_rating, colorscale = c('#708090', '#683531'), showscale = F,
+                           color = ~ALL_rating, colorscale = c('#708090', '#683531'), showscale = F,
                            zmin = 2, zmax = 5),
              sizes = c(50, 1000), opacity = 1,
              name = 'Beers',
@@ -67,8 +69,8 @@ p <- plot_ly() %>%
                            '<br>Name: ', UT_beer_name,
                            '<br>Brewery: ', UT_brewery,
                            '<br>Type: ', UT_sub_style,
-                           '<br>Untappd user rating: ', UT_rating,
-                           '<br>Untappd raters: ', UT_raters,
+                           '<br>user rating: ', ALL_rating,
+                           '<br>Untappd raters: ', ALL_raters,
                            '<br>Alcohol content: ', UT_ABV, '%',
                            '<br>Bitterness: ', UT_IBU, 'IBU')) %>%
   add_surface(x = x_marginal, y = y_marginal,
@@ -96,7 +98,7 @@ p <- plot_ly() %>%
                                  xanchor = 'left',#left aligned
                                  showarrow = F),
                             list(x = 1, y = 0,#bottom right corner of frame
-                                 text = 'Source: <a href="http://untappd.com">untappd.com</a>',
+                                 text = 'Source: <a href="http://untappd.com">untappd.com</a> <br>and <a href="http://beeradvocate.com">beeradvocate.com</a>',
                                  xref = 'paper', yref = 'paper',
                                  xanchor = 'right',#right aligned
                                  showarrow = F)))
@@ -109,7 +111,7 @@ if(gif_building == F) plotly_POST(p, filename = "ABV_IBU_ratings")
 if (gif_building) {
   
   
-  for(i in seq(0,6.3,by=0.1)){
+  for(i in seq(0,pi * 2, length = 60)){
     
     outfile <- paste('C:\\Users\\Richard\\Desktop\\R\\beer_rating\\ABV_IBU_UT_gif\\ABV_IBU_ratings',round(i,digits=2), sep = "_")
     #outfile = paste('ABV_IBU_ratings',round(i,digits=2), sep = "_")
@@ -137,7 +139,7 @@ if (gif_building) {
 #download ImageMagick
 #open windows terminal
 #navigate to folder housing all the png files making up gif
-#> "C:\Program Files\ImageMagick-7.0.5-Q16\magick" *.png -delay 3 -loop 0 name.gif
+#> "C:\Program Files\ImageMagick-7.0.5-Q16\magick" *.png -delay 5 -loop 0 name.gif
 
 ###################################################################################################
 #Which country produces the best beers?
@@ -169,9 +171,9 @@ for(c in countries){#for each country in the world
   if(c == 'United Kingdom') c = 'England|Scotland|Wales'
   
   print(c)
-  map_dat[counter, 'rating_beermean'] = mean(UT_dat[grep(c, UT_dat$UT_loc),'UT_rating'], na.rm = T)
-  map_dat[counter, 'rating'] = weighted.mean(UT_dat[grep(c, UT_dat$UT_loc),'UT_rating'], UT_dat[grep(c, UT_dat$UT_loc),'UT_raters'], na.rm = T)
-  map_dat[counter, 'raters'] = sum(UT_dat[grep(c, UT_dat$UT_loc),'UT_raters'], na.rm = T)
+  map_dat[counter, 'rating_beermean'] = mean(UT_dat[grep(c, UT_dat$UT_loc),'ALL_rating'], na.rm = T)
+  map_dat[counter, 'rating'] = weighted.mean(UT_dat[grep(c, UT_dat$UT_loc),'ALL_rating'], UT_dat[grep(c, UT_dat$UT_loc),'ALL_raters'], na.rm = T)
+  map_dat[counter, 'raters'] = sum(UT_dat[grep(c, UT_dat$UT_loc),'ALL_raters'], na.rm = T)
   map_dat[counter, 'beers'] = length(unique(UT_dat[grep(c, UT_dat$UT_loc),'UT_beer_name']))
   map_dat[counter, 'breweries'] = length(unique(UT_dat[grep(c, UT_dat$UT_loc),'UT_brewery']))
 
@@ -223,7 +225,7 @@ p <- plot_geo(map_dat) %>%
                             xanchor = 'left',
                             showarrow = F),
                        list(x = 1, y = 0,
-                            text = 'Source: <a href="http://untappd.com">untappd.com</a>',
+                            text = 'Source: <a href="http://untappd.com">untappd.com</a> <br>and <a href="http://beeradvocate.com">beeradvocate.com</a>',
                             xref = 'paper',
                             yref = 'paper',
                             xanchor = 'right',
