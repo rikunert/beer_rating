@@ -5,81 +5,181 @@
 
 ###################################################################################################
 # load libraries
-
 if(!require(devtools)){install.packages('devtools')} #developer version download
 library(devtools)
 devtools::install_version("plotly", version = "4.5.6", 
                           repos = "http://cran.us.r-project.org")
 library(plotly)
-
 ###################################################################################################
 # load data
-
-load(url("https://github.com/rikunert/beer_rating/raw/master/BA_dat_2017-05-16.RData"))#beer advocate
-BA_dat = BA_dat[BA_dat[,'raters'] > 100,]#remove beers with few raters
-
-load(url("https://github.com/rikunert/beer_rating/raw/master/RB_dat_2017-05-18.RData"))#rate beer
-
 load(url("https://github.com/rikunert/beer_rating/raw/master/UT_dat_2017-05-29.RData"))#beer advocate and untappd
-
-# Beer advocate is the far better data base including more beers rated by more people, resulting in more diverse mean ratings
-
-#download and load image of a star
-z <- tempfile()
-download.file('https://github.com/rikunert/Star_Trek_ratings/raw/master/gold_star.jpg',
-              z, mode="wb")
-pic <- readJPEG(z)
-pic = rasterGrob(pic, interpolate=TRUE)
-file.remove(z) # cleanup
 
 ###################################################################################################
 #The interaction of bitterness and alcohol content for beer ratings
 
+xmax = 20#ABV
+ymax = 310#IBU
+interp_dens = 100#interpolation density for modeling
+
 int_dat = UT_dat[complete.cases(UT_dat[c('UT_beer_name', 'UT_brewery', 'UT_ABV', 'UT_IBU', 'UT_rating', 'UT_raters')]),]
 
-p <- plot_ly(int_dat, x = ~UT_ABV, y = ~UT_IBU, z = ~UT_rating, size = ~UT_raters,
-             marker = list(symbol = 'circle', sizemode = 'area', color = ~UT_rating, colorscale = c('#708090', '#683531'), showscale = F),
-             sizes = c(50, 1000), opacity = 0.4,
+#Which individual beer is best?
+#head(int_dat[order(-int_dat[,'UT_rating']),], 10)#order to see who is best in text
+#quantile(int_dat$UT_IBU, seq(0, 1, 0.01))#put values in perspective
+
+#generate LOESS model of beer ratings and predict interpolated ratings
+m = loess(UT_rating ~ UT_ABV * UT_IBU, data = int_dat, weights = UT_raters)
+x_marginal = seq(min(int_dat$UT_ABV), xmax, length = interp_dens)
+y_marginal = seq(min(int_dat$UT_IBU), ymax, length = interp_dens)
+data.fit <-  expand.grid(list(UT_ABV = x_marginal, UT_IBU = y_marginal))
+pred_interp = predict(m, newdata = data.fit)#interpolated ratings    
+
+#hover text for surface plot (LOESS model)
+hover <- with(data.frame(x = rep(x_marginal, interp_dens),
+                         y = rep(y_marginal, each = interp_dens),
+                         p = as.vector(pred_interp)),
+              paste('Modeled beer (LOESS)', '<br>',
+                    "Predicted rating: ", round(p, digits = 2), "stars", '<br>',
+                    "Alcohol content: ", round(x, digits = 2), '%', '<br>',
+                    'Bitterness: ', round(y, digits = 2), 'IBU'))
+hover_m = matrix(hover, nrow = interp_dens, ncol = interp_dens, byrow = T)
+
+p <- plot_ly() %>%
+  add_markers(data = int_dat, x = ~UT_ABV, y = ~UT_IBU, z = ~UT_rating, size = ~UT_raters,
+             marker = list(symbol = 'circle', sizemode = 'area',
+                           color = ~UT_rating, colorscale = c('#708090', '#683531'), showscale = F,
+                           zmin = 2, zmax = 5),
+             sizes = c(50, 1000), opacity = 1,
+             name = 'Beers',
              hoverinfo = 'text',
-             text = ~paste('Type: ', UT_sub_style, '<br>Beer: ', UT_beer_name, '<br>Brewery: ', UT_brewery,
+             text = ~paste('Actual beer',
+                           '<br>Name: ', UT_beer_name,
+                           '<br>Brewery: ', UT_brewery,
+                           '<br>Type: ', UT_sub_style,
                            '<br>Untappd user rating: ', UT_rating,
                            '<br>Untappd raters: ', UT_raters,
                            '<br>Alcohol content: ', UT_ABV, '%',
                            '<br>Bitterness: ', UT_IBU, 'IBU')) %>%
-  layout(title = 'How bittnerness and alcohol make beer good',
-         scene = list(xaxis = list(title = '% Alcohol (ABV)',
+  add_surface(x = x_marginal, y = y_marginal,
+              z = t(pred_interp),#add_surface() expects the x-values on the columns and the y-values on the rows (very confusing, I know)
+              opacity = 0.7,
+              name = 'LOESS model',
+              hoverinfo = 'text',
+              text = hover_m,
+              showscale = F,
+              colorscale = c('#708090', '#683531'),
+              cmin = 2, cmax = 5) %>%
+  layout(title = 'How bitterness and alcohol make good beer',
+         scene = list(xaxis = list(title = '% Alcohol',
+                                   gridcolor = 'rgb(255, 255, 255)',#white
+                                   range = c(0, xmax)),
+                      yaxis = list(title = 'Bitterness',
                                    gridcolor = 'rgb(255, 255, 255)',
-                                   range = c(0, 20),
-                                   zerolinewidth = 1,
-                                   ticklen = 5,
-                                   gridwidth = 2),
-                      yaxis = list(title = 'Bitterness (IBU)',
+                                   range = c(0, ymax)),
+                      zaxis = list(title = 'Rating',
                                    gridcolor = 'rgb(255, 255, 255)',
-                                   range = c(0, 310),
-                                   zerolinewidth = 1,
-                                   ticklen = 5,
-                                   gridwith = 2),
-                      zaxis = list(title = 'Untappd rating',
-                                   gridcolor = 'rgb(255, 255, 255)',
-                                   range = c(1, 5),
-                                   zerolinewidth = 1,
-                                   ticklen = 5,
-                                   gridwith = 2)),
-         annotations = list(list(x = 0, y = 0,
-                            text = '@rikunert',
+                                   range = c(1, 5))),
+         annotations = list(list(x = 0, y = 0,#bottom left corner of frame
+                                 text = '<a href="https://twitter.com/rikunert">@rikunert</a>',
+                                 xref = 'paper', yref = 'paper',
+                                 xanchor = 'left',#left aligned
+                                 showarrow = F),
+                            list(x = 1, y = 0,#bottom right corner of frame
+                                 text = 'Source: <a href="http://untappd.com">untappd.com</a>',
+                                 xref = 'paper', yref = 'paper',
+                                 xanchor = 'right',#right aligned
+                                 showarrow = F)))
+plotly_POST(p, filename = "ABV_IBU_ratings")
+
+###################################################################################################
+#Which country produces the best beers?
+
+#aggregate data by country
+#get list of country names by using this example data set from the plotly website, not neat but it will do the job
+ex <- read.csv('https://raw.githubusercontent.com/plotly/datasets/master/2014_world_gdp_with_codes.csv')
+countries = ex$COUNTRY
+
+map_dat = data.frame(country = ex$COUNTRY,
+                     code = ex$CODE,
+                     rating = rep(NaN, length(ex$COUNTRY)),
+                     raters = rep(NaN, length(ex$COUNTRY)),
+                     beers = rep(NaN, length(ex$COUNTRY)),
+                     breweries = rep(NaN, length(ex$COUNTRY)),
+                     best_beer = rep(NaN, length(ex$COUNTRY)),
+                     best_brewery = rep(NaN, length(ex$COUNTRY)))
+
+counter = 0
+for(c in countries){#for each country in the world
+  counter = counter + 1
+  
+  if(c == 'Korea, South') {
+    c = 'South Korea' 
+    map_dat[counter, 'code'] = 'KOR'}#curiously, the country codes of the Koreas were swapped
+  if(c == 'Niger') c = ' Niger'#no Niger beers in data base, avoid confusion with Nigeria
+  if(c == 'Korea, North') map_dat[counter, 'code'] = 'PRK'#curiously, the country codes of the Koreas were swapped
+  if(c == 'Bahamas, The') c = 'Bahamas'
+  if(c == 'United Kingdom') c = 'England|Scotland|Wales'
+  
+  print(c)
+  map_dat[counter, 'rating_beermean'] = mean(UT_dat[grep(c, UT_dat$UT_loc),'UT_rating'], na.rm = T)
+  map_dat[counter, 'rating'] = weighted.mean(UT_dat[grep(c, UT_dat$UT_loc),'UT_rating'], UT_dat[grep(c, UT_dat$UT_loc),'UT_raters'], na.rm = T)
+  map_dat[counter, 'raters'] = sum(UT_dat[grep(c, UT_dat$UT_loc),'UT_raters'], na.rm = T)
+  map_dat[counter, 'beers'] = length(unique(UT_dat[grep(c, UT_dat$UT_loc),'UT_beer_name']))
+  map_dat[counter, 'breweries'] = length(unique(UT_dat[grep(c, UT_dat$UT_loc),'UT_brewery']))
+
+  #best_beers_c = unique(UT_dat[grep(c, UT_dat$UT_loc) & UT_dat[grep(c, UT_dat$UT_loc),'UT_rating'] == max(UT_dat[grep(c, UT_dat$UT_loc),'UT_rating'], na.rm = T), 'UT_beer_name'])
+  #map_dat[counter, 'best_beer'] = paste(best_beers_c[!is.na(best_beers_c)], collapse = ' | ')
+
+  #breweries_c = unique(UT_dat[grep(c, UT_dat$UT_loc),'UT_brewery'])
+  #brewery_ratings_c = sapply(breweries_c, function(x) weighted.mean(UT_dat[UT_dat[,'UT_brewery'] == x,'UT_rating'], UT_dat[UT_dat[,'UT_brewery'] == x,'UT_raters'], na.rm = T))
+  #best_breweries_c = breweries_c[brewery_ratings_c == max(brewery_ratings_c, na.rm = T)]
+  #map_dat[counter, 'best_brewery'] = paste(best_breweries_c[!is.na(best_breweries_c)], collapse = ' | ')
+  
+}
+
+map_dat = map_dat[!is.na(map_dat[,'rating']),]
+#map_dat[order(-map_dat[,'rating']),]#order to see who is best in text
+
+#hover text
+map_dat$hover <- with(map_dat, paste("Country: ", country, '<br>',
+                                     "Mean rating: ", round(rating, digits = 2), "stars", '<br>',
+                                     "Raters: ", raters, "<br>",
+                                     "Beers: ", beers, "<br>",
+                                     "Breweries: ", breweries)
+                      )
+
+# light grey boundaries
+l <- list(color = toRGB("grey"), width = 0.5)
+
+# specify map projection/options
+g <- list(
+  showframe = F,
+  showcoastlines = T,
+  projection = list(type = 'orthographic')
+  )
+
+p <- plot_geo(map_dat) %>%
+  add_trace(
+    z = ~rating, color = ~rating, colors = c('#708090', '#d30f00'),
+    text = ~hover, locations = ~code, marker = list(line = l)
+  ) %>%
+  colorbar(title = 'Rating', ticksuffix = ' stars') %>%
+  layout(
+    title = 'Which country produces the best beers in the world?',
+    geo = g,
+    hoverinfo = 'text',
+    annotations = list(list(x = 0, y = 0,
+                            text = '<a href="https://twitter.com/rikunert">@rikunert</a>',
                             xref = 'paper',
                             yref = 'paper',
                             xanchor = 'left',
                             showarrow = F),
-                            list(x = 1, y = 0,
-                                 text = 'Source: untappd.com',
-                                 xref = 'paper',
-                                 yref = 'paper',
-                                 xanchor = 'right',
-                                 showarrow = F))
+                       list(x = 1, y = 0,
+                            text = 'Source: <a href="http://untappd.com">untappd.com</a>',
+                            xref = 'paper',
+                            yref = 'paper',
+                            xanchor = 'right',
+                            showarrow = F))
   )
 p
-
-###################################################################################################
-#Which country produces the best beers?
-levels(UT_dat$UT_loc)
+plotly_POST(p, filename = "globe_beer_rating")#push plotly post to plotly website # Set up API credentials: https://plot.ly/r/getting-started
