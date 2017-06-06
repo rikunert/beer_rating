@@ -5,10 +5,21 @@
 
 ###################################################################################################
 # load libraries
-if(!require(devtools)){install.packages('devtools')} #developer version download
-library(devtools)
-devtools::install_version("plotly", version = "4.5.6", 
-                          repos = "http://cran.us.r-project.org")
+gif_building = T
+
+if(gif_building == F){#older version for interactive plot version, otherwise file too big for upload
+  
+  if(!require(devtools)){install.packages('devtools')} #developer version download
+  library(devtools)
+  devtools::install_version("plotly", version = "4.5.6",
+                            repos = "http://cran.us.r-project.org")
+  
+} else {
+
+    install.packages('plotly')#most up to date plotly version for gif building, otherwise 500 HTTP error
+  
+}
+
 library(plotly)
 ###################################################################################################
 # load data
@@ -89,7 +100,44 @@ p <- plot_ly() %>%
                                  xref = 'paper', yref = 'paper',
                                  xanchor = 'right',#right aligned
                                  showarrow = F)))
-plotly_POST(p, filename = "ABV_IBU_ratings")
+
+#save on plotly website
+if(gif_building == F) plotly_POST(p, filename = "ABV_IBU_ratings")
+
+#save images for gif building
+#be sure to have most up to date version of plotly
+if (gif_building) {
+  
+  
+  for(i in seq(0,6.3,by=0.1)){
+    
+    outfile <- paste('C:\\Users\\Richard\\Desktop\\R\\beer_rating\\ABV_IBU_UT_gif\\ABV_IBU_ratings',round(i,digits=2), sep = "_")
+    #outfile = paste('ABV_IBU_ratings',round(i,digits=2), sep = "_")
+    cam.zoom = 2
+    
+    p = p %>% layout(showlegend = F,
+                     scene=list(camera = list(eye = list(x = cos(i)*cam.zoom, y = sin(i)*cam.zoom, z=0.8),
+                                          center = list(x = 0,
+                                                        y = 0,
+                                                        z = 0
+                                          ))))
+    
+    cat("Now rendering iteration:", i,"\n")
+    plotly_IMAGE(p,
+                 width = 700,
+                 height = 650,
+                 format = "png",
+                 scale = 1,
+                 out_file = paste(outfile,"png", sep="."))
+    
+  }
+}
+
+#now that images are up, combine them into a gif:
+#download ImageMagick
+#open windows terminal
+#navigate to folder housing all the png files making up gif
+#> "C:\Program Files\ImageMagick-7.0.5-Q16\magick" *.png -delay 3 -loop 0 name.gif
 
 ###################################################################################################
 #Which country produces the best beers?
