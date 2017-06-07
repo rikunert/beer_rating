@@ -5,7 +5,7 @@
 
 ###################################################################################################
 # load libraries
-gif_building = T
+gif_building = F
 
 if(gif_building == F){#older version for interactive plot version, otherwise file too big for upload
   
@@ -142,6 +142,23 @@ if (gif_building) {
 #> "C:\Program Files\ImageMagick-7.0.5-Q16\magick" *.png -delay 5 -loop 0 name.gif
 
 ###################################################################################################
+#Which kind of beer is best?
+
+#weighted mean rating grouped by kind of beer
+beer_kind_wmean = sapply(split(UT_dat, UT_dat$UT_sub_style), function(x) weighted.mean(x$ALL_rating, x$ALL_raters, na.rm = T))
+beer_kind_mean = sapply(split(UT_dat, UT_dat$UT_sub_style), function(x) mean(x$ALL_rating, na.rm = T))
+
+ordering = order(-beer_kind_wmean)
+beer_kind_mean = beer_kind_mean[ordering]
+beer_kind_wmean = beer_kind_wmean[ordering]
+
+table_text = with(data.frame(x = beer_kind_wmean,
+                             y = beer_kind_mean,
+                             k = names(beer_kind_mean)),
+                  paste(k, ' | ', round(x, digits = 2), ' | ', round(y, digits = 2)))
+table_text
+
+###################################################################################################
 #Which country produces the best beers?
 
 #aggregate data by country
@@ -231,5 +248,52 @@ p <- plot_geo(map_dat) %>%
                             xanchor = 'right',
                             showarrow = F))
   )
-p
+#p
 plotly_POST(p, filename = "globe_beer_rating")#push plotly post to plotly website # Set up API credentials: https://plot.ly/r/getting-started
+
+
+###################################################################################################
+#Wait, but are beer ratings reliable?
+int_dat = UT_dat[complete.cases(UT_dat[c('UT_beer_name', 'ALL_rating', 'ALL_raters')]),]
+p <- plot_ly() %>%
+  add_markers(data = int_dat, x = ~BA_rating, y = ~UT_rating, size = ~ALL_raters,
+              marker = list(symbol = 'circle', sizemode = 'area',
+                            color = ~ALL_rating, colorscale = c('#708090', '#683531'), showscale = F,
+                            cmin = 2, cmax = 5),
+              sizes = c(50, 1000), opacity = 1,
+              name = 'Beers',
+              hoverinfo = 'text',
+              text = ~paste('Beer: ', UT_beer_name,
+                            '<br>beeradvocate rating: ', BA_rating, ' stars',
+                            '<br>beeradvocate raters: ', BA_raters,
+                            '<br>untappd rating: ', UT_rating, ' stars',
+                            '<br>untappd raters: ', UT_raters)) %>%
+  add_trace(x = c(1, 5), y = c(1, 5),
+            mode = 'lines',
+              name = 'Ideal: beeradvocate rating = untappd rating') %>%
+  layout(title = 'Beer ratings largely agree across websites',
+         xaxis = list(title = 'beeradvocate rating',
+                                   gridcolor = 'rgb(255, 255, 255)',#white
+                                   range = c(1, 5)),
+         yaxis = list(title = 'untappd rating',
+                                   gridcolor = 'rgb(255, 255, 255)',
+                                   range = c(1, 5)),
+         showlegend = FALSE,
+         annotations = list(
+           list(x = 1.8, y = 1.8,#bottom left corner of frame
+                text = 'Ideal line:<br>untappd rating<br>=<br>beeradvocate rating',
+                xanchor = 'left',#left aligned
+                showarrow = T,
+                ax = 100, ay = 40),
+           list(x = 0, y = 0,#bottom left corner of frame
+                                 text = '<a href="https://twitter.com/rikunert">@rikunert</a>',
+                                 xref = 'paper', yref = 'paper',
+                                 xanchor = 'left',#left aligned
+                                 showarrow = F),
+                            list(x = 1, y = 0,#bottom right corner of frame
+                                 text = 'Source: <a href="http://untappd.com">untappd.com</a> <br>and <a href="http://beeradvocate.com">beeradvocate.com</a>',
+                                 xref = 'paper', yref = 'paper',
+                                 xanchor = 'right',#right aligned
+                                 showarrow = F)))
+p
+plotly_POST(p, filename = "UT_BA_agreement")#push plotly post to plotly website # Set up API credentials: https://plot.ly/r/getting-started
