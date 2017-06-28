@@ -69,8 +69,8 @@ p <- plot_ly() %>%
                            '<br>Name: ', UT_beer_name,
                            '<br>Brewery: ', UT_brewery,
                            '<br>Type: ', UT_sub_style,
-                           '<br>user rating: ', ALL_rating,
-                           '<br>Untappd raters: ', ALL_raters,
+                           '<br>User rating: ', round(ALL_rating, digits = 2),
+                           '<br>Raters: ', ALL_raters,
                            '<br>Alcohol content: ', UT_ABV, '%',
                            '<br>Bitterness: ', UT_IBU, 'IBU')) %>%
   add_surface(x = x_marginal, y = y_marginal,
@@ -222,8 +222,23 @@ l <- list(color = toRGB("grey"), width = 0.5)
 g <- list(
   showframe = F,
   showcoastlines = T,
-  projection = list(type = 'orthographic')
+  projection = list(type = 'orthographic'),
+  showcountries = TRUE
   )
+
+#annotations
+a <- list(list(x = 0, y = 0,
+               text = '<a href="https://twitter.com/rikunert">@rikunert</a>',
+               xref = 'paper',
+               yref = 'paper',
+               xanchor = 'left',
+               showarrow = F),
+          list(x = 1, y = 0,
+               text = 'Source: <a href="http://untappd.com">untappd.com</a> <br>and <a href="http://beeradvocate.com">beeradvocate.com</a>',
+               xref = 'paper',
+               yref = 'paper',
+               xanchor = 'right',
+               showarrow = F))
 
 p <- plot_geo(map_dat) %>%
   add_trace(
@@ -235,21 +250,49 @@ p <- plot_geo(map_dat) %>%
     title = 'Which country produces the best beers in the world?',
     geo = g,
     hoverinfo = 'text',
-    annotations = list(list(x = 0, y = 0,
-                            text = '<a href="https://twitter.com/rikunert">@rikunert</a>',
-                            xref = 'paper',
-                            yref = 'paper',
-                            xanchor = 'left',
-                            showarrow = F),
-                       list(x = 1, y = 0,
-                            text = 'Source: <a href="http://untappd.com">untappd.com</a> <br>and <a href="http://beeradvocate.com">beeradvocate.com</a>',
-                            xref = 'paper',
-                            yref = 'paper',
-                            xanchor = 'right',
-                            showarrow = F))
+    annotations = a
   )
 #p
-plotly_POST(p, filename = "globe_beer_rating")#push plotly post to plotly website # Set up API credentials: https://plot.ly/r/getting-started
+if(gif_building == F) plotly_POST(p, filename = "globe_beer_rating")#push plotly post to plotly website # Set up API credentials: https://plot.ly/r/getting-started
+
+#save images for gif building
+#be sure to have most up to date version of plotly
+if (gif_building) {
+  
+  counter = 0
+  for(i in seq(-180, 180, length = 121)){
+    counter = counter + 1
+    if (counter %in% c(100)){
+    outfile <- paste('C:\\Users\\Richard\\Desktop\\R\\beer_rating\\globe_beer_rating_gif\\globe_beer_rating_',counter, sep = "_")
+    
+    g <- list(
+      showframe = F,
+      showcoastlines = T,
+      projection = list(type = 'orthographic',
+                        rotation = list(
+                          lat = 0, 
+                          lon = i, 
+                          roll = 0)),
+      showcountries = TRUE)
+    
+    p = p %>% layout(geo = g, showlegend = FALSE)
+    
+    cat("Now rendering iteration:", i,"\n")
+    plotly_IMAGE(p,
+                 width = 700,
+                 height = 650,
+                 format = "png",
+                 scale = 1,
+                 out_file = paste(outfile,"png", sep="."))
+    
+  }}
+}
+
+#now that images are up, combine them into a gif:
+#download ImageMagick
+#open windows terminal
+#navigate to folder housing all the png files making up gif
+#> "C:\Program Files\ImageMagick-7.0.5-Q16\magick" *.png -delay 0 -loop 0 name.gif
 
 
 ###################################################################################################
